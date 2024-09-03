@@ -11,7 +11,7 @@ Echo.private('lobby')
     .listen('GameJoined', (event) => {
         games.value = games.value.filter((game) => game.id !== event.game.id);
 
-        if(games.value.length < 1) {
+        if(games.value.length < 5) {
             router.reload({ only: ['games'], onSuccess: () => games.value = props.games.data })
         }
     });

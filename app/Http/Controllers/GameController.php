@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Events\GameCreated;
 use App\Events\GameJoined;
 use App\Models\Game;
 use Illuminate\Http\Request;
@@ -39,6 +40,8 @@ class GameController extends Controller
         $game = Game::create([
             'player_one_id' => $request->user()->id,
         ]);
+
+        GameCreated::dispatch($game);
 
         return redirect()->route('games.show', $game);
     }

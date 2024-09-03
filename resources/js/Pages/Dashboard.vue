@@ -14,6 +14,11 @@ Echo.private('lobby')
         if(games.value.length < 5) {
             router.reload({ only: ['games'], onSuccess: () => games.value = props.games.data })
         }
+    })
+    .listen('GameCreated', (event) => {
+        games.value.push(event.game);
+        
+        router.reload({ only: ['games'], onSuccess: () => games.value = props.games.data });
     });
 </script>
 

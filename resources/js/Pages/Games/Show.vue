@@ -68,14 +68,19 @@ const resetGame = () => {
 
 Echo.join(`games.${props.game.id}`)
     .here((users) => players.value = users)
-    .joining((user) => router.reload({
-        onSuccess: () => players.value.push(user)
-    }))
-    .leaving((user) => players.value = players.value.filter(({id}) => id !== user.id));
-
-// onUnmounted(() => {
-//     Echo.leave(`games.${props.game.id}`)
-// });
+    .joining((user) => {
+        router.reload({
+            onSuccess: () => players.value.push(user)
+        });
+        toast('Player 2 has joined the game');
+    })
+    .leaving((user) => {
+        router.reload({
+            onSuccess: () => {
+                players.value = players.value.filter(({ id }) => id !== user.id);
+            }   
+        });
+    })
 
 </script>
 
@@ -93,18 +98,19 @@ Echo.join(`games.${props.game.id}`)
             <li class="my-4 flex items-center gap-3">
                 <span class="px-1.5 font-bold rounded bg-slate-400">X</span>
                 <span>{{ game.player_one.name }}</span>
-                <!-- <span class="relative flex h-2 w-2">
+                <span class="relative flex h-2 w-2">
                     <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-sky-400 opacity-75"></span>
                     <span class="relative inline-flex rounded-full h-2 w-2 bg-sky-500"></span>
-                </span> -->
-                <!-- <span :class="{ '!bg-green-500': players.find(({id}) => id === game.player_one_id) }" class="bg-red-500 size-2 rounded-full"></span> -->
+                </span>
             </li>
 
             <li v-if="game.player_two" class="my-4 flex items-center gap-3">
                 <span class="px-1.5 font-bold rounded bg-slate-400">O</span>
                 <span>{{ game.player_two.name }}</span>
-                <!-- <span class="bg-red-500 size-2 rounded-full"></span> -->
-                <!-- <span :class="{ '!bg-green-500': players.find(({id}) => id === game.player_one_id) }" class="bg-red-500 size-2 rounded-full"></span> -->
+                <span class="relative flex h-2 w-2">
+                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-sky-400 opacity-75"></span>
+                    <span class="relative inline-flex rounded-full h-2 w-2 bg-sky-500"></span>
+                </span>
             </li>
             
             <li v-else class="flex items-center gap-3">

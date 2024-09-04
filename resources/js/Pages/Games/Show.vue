@@ -2,7 +2,7 @@
 import { computed, ref, onUnmounted } from 'vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Toaster, toast } from 'vue-sonner';
-import { router } from '@inertiajs/vue3';
+import { router, usePage } from '@inertiajs/vue3';
 
 const props = defineProps(['game']);
 
@@ -10,17 +10,44 @@ const board = ref(props.game.state ?? [0, 0, 0, 0, 0, 0, 0, 0, 0]);
 
 const players = ref();
 
+const page = usePage();
 const firstTurn = computed(() => board.value.reduce(
     (acumulator, current_value) => acumulator + current_value, 0)
 );
+const Turn = computed(() => {
+    if(props.game.player_one_id === page.props.auth.user.id) {
+        return firstTurn.value;
+    }
+
+    return !firstTurn.value;
+})
 
 const fillSquare = (index) => {
+    if(! Turn.value ) {
+        return;
+    }
+
     board.value[index] = firstTurn.value ? -1 : 1;
 
     router.put(route('games.update', props.game.id), {
         state: board.value,
     });
+}
 
+const lines = [
+    [0, 1, 2],
+    [3, 4 ,5],
+    [6, 7, 8],
+
+    [0, 3, 6],
+    [1, 4 ,7],
+    [2, 5, 8],
+    
+    [0, 4, 8],
+    [2, 4 ,6],
+]
+
+const checkForWinner = () => {
     const winningLine = lines.map((line) => line.reduce((acumulator, index) => acumulator + board.value[index], 0))
         .find((sum) => Math.abs(sum) === 3);
 
@@ -51,28 +78,18 @@ const fillSquare = (index) => {
                 onClick: () => resetGame()
             }
         });
+        return;
     }
 
-    onUnmounted(() => {
-        Echo.leave(`games.${props.game.id}`);
-    });
-}
-
-const lines = [
-    [0, 1, 2],
-    [3, 4 ,5],
-    [6, 7, 8],
-
-    [0, 3, 6],
-    [1, 4 ,7],
-    [2, 5, 8],
-    
-    [0, 4, 8],
-    [2, 4 ,6],
-]
+    return
+} 
 
 const resetGame = () => {
     board.value = [0, 0, 0, 0, 0, 0, 0, 0, 0];
+
+    router.put(route('games.update', props.game.id), {
+        state: board.value,
+    });
 }
 
 Echo.join(`games.${props.game.id}`)
@@ -81,17 +98,12 @@ Echo.join(`games.${props.game.id}`)
         router.reload({
             onSuccess: () => players.value.push(user)
         });
-        toast('Player 2 has joined the game');
+        // toast('Player 2 has joined the game');
     })
-    .leaving((user) => {
-        router.reload({
-            onSuccess: () => {
-                players.value = players.value.filter(({ id }) => id !== user.id);
-            }   
-        });
-    })
+    .leaving((user) => players.value = players.value.filter(({id}) => id !== user.id))
     .listen('PlayerMadeMove', ({game}) => {
         board.value = game.state;
+        checkForWinner()
     });
 
 </script>
@@ -106,10 +118,12 @@ Echo.join(`games.${props.game.id}`)
             </li>
         </menu>
 
-        <ul class="max-w-sm mx-auto my-6">
+            <ul class="max-w-sm mx-auto my-6">
             <li class="my-4 flex items-center gap-3">
                 <span class="px-1.5 font-bold rounded bg-slate-400">X</span>
+
                 <span>{{ game.player_one.name }}</span>
+
                 <span class="relative flex h-2 w-2">
                     <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-sky-400 opacity-75"></span>
                     <span class="relative inline-flex rounded-full h-2 w-2 bg-sky-500"></span>
@@ -118,7 +132,9 @@ Echo.join(`games.${props.game.id}`)
 
             <li v-if="game.player_two" class="my-4 flex items-center gap-3">
                 <span class="px-1.5 font-bold rounded bg-slate-400">O</span>
+                
                 <span>{{ game.player_two.name }}</span>
+
                 <span class="relative flex h-2 w-2">
                     <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-sky-400 opacity-75"></span>
                     <span class="relative inline-flex rounded-full h-2 w-2 bg-sky-500"></span>

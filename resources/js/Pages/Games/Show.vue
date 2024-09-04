@@ -1,13 +1,14 @@
 <script setup>
-import { computed, ref } from 'vue';
+import { computed, ref, onUnmounted } from 'vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Toaster, toast } from 'vue-sonner';
 import { router } from '@inertiajs/vue3';
 
 const props = defineProps(['game']);
-const players = ref();
 
-const board = ref([0, 0, 0, 0, 0, 0, 0, 0, 0]);
+const board = ref(props.game.state ?? [0, 0, 0, 0, 0, 0, 0, 0, 0]);
+
+const players = ref();
 
 const firstTurn = computed(() => board.value.reduce(
     (acumulator, current_value) => acumulator + current_value, 0)
@@ -15,6 +16,10 @@ const firstTurn = computed(() => board.value.reduce(
 
 const fillSquare = (index) => {
     board.value[index] = firstTurn.value ? -1 : 1;
+
+    router.put(route('games.update', props.game.id), {
+        state: board.value,
+    });
 
     const winningLine = lines.map((line) => line.reduce((acumulator, index) => acumulator + board.value[index], 0))
         .find((sum) => Math.abs(sum) === 3);
@@ -47,6 +52,10 @@ const fillSquare = (index) => {
             }
         });
     }
+
+    onUnmounted(() => {
+        Echo.leave(`games.${props.game.id}`);
+    });
 }
 
 const lines = [
@@ -81,6 +90,9 @@ Echo.join(`games.${props.game.id}`)
             }   
         });
     })
+    .listen('PlayerMadeMove', ({game}) => {
+        board.value = game.state;
+    });
 
 </script>
 

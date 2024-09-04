@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Events\GameCreated;
 use App\Events\GameJoined;
+use App\Events\PlayerMadeMove;
 use App\Models\Game;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -54,7 +55,7 @@ class GameController extends Controller
             'player_two_id' => $request->user()->id,
         ]);    
 
-        GameJoined::dispatch($game);
+        broadcast(new GameJoined($game))->toOthers();
 
         return to_route('games.show', $game);
     }
@@ -80,9 +81,18 @@ class GameController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, string $id)
+    public function update(Request $request, Game $game)
     {
-        //
+        $data = $request->validate([
+            'state' => ['required', 'array', 'size:9'],
+            'stat.*' => ['integer', 'between:-1,1'],
+        ]);
+
+        $game->update($data);
+
+        broadcast(new PlayerMadeMove($game))->toOthers();
+
+        return to_route('games.show', $game);
     }
 
     /**

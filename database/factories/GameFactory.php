@@ -20,6 +20,7 @@ class GameFactory extends Factory
         return [
             'player_one_id' => User::factory(),
             'player_two_id' => NULL,
+            'state' => NULL,
         ];
     }
 }

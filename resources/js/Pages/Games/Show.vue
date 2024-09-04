@@ -1,110 +1,117 @@
 <script setup>
-import { computed, ref, onUnmounted } from 'vue';
-import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
-import { Toaster, toast } from 'vue-sonner';
-import { router, usePage } from '@inertiajs/vue3';
+    import { computed, ref, onMounted } from 'vue';
+    import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
+    import { Toaster, toast } from 'vue-sonner';
+    import { router, usePage } from '@inertiajs/vue3';
 
-const props = defineProps(['game']);
-
-const board = ref(props.game.state ?? [0, 0, 0, 0, 0, 0, 0, 0, 0]);
-
-const players = ref();
-
-const page = usePage();
-const firstTurn = computed(() => board.value.reduce(
-    (acumulator, current_value) => acumulator + current_value, 0)
-);
-const Turn = computed(() => {
-    if(props.game.player_one_id === page.props.auth.user.id) {
-        return firstTurn.value;
-    }
-
-    return !firstTurn.value;
-})
-
-const fillSquare = (index) => {
-    if(! Turn.value ) {
-        return;
-    }
-
-    board.value[index] = firstTurn.value ? -1 : 1;
-
-    router.put(route('games.update', props.game.id), {
-        state: board.value,
-    });
-}
-
-const lines = [
-    [0, 1, 2],
-    [3, 4 ,5],
-    [6, 7, 8],
-
-    [0, 3, 6],
-    [1, 4 ,7],
-    [2, 5, 8],
+    const props = defineProps(['game']);
     
-    [0, 4, 8],
-    [2, 4 ,6],
-]
+    const board = ref(props.game.state ?? [0, 0, 0, 0, 0, 0, 0, 0, 0]);
+    const players = ref();
 
-const checkForWinner = () => {
-    const winningLine = lines.map((line) => line.reduce((acumulator, index) => acumulator + board.value[index], 0))
-        .find((sum) => Math.abs(sum) === 3);
+    const page = usePage();
+    const firstTurn = computed(() => board.value.reduce(
+        (acumulator, current_value) => acumulator + current_value, 0)
+    );
+    const Turn = computed(() => {
+        if(props.game.player_one_id === page.props.auth.user.id) {
+            return firstTurn.value;
+        }
 
-    if (winningLine === 3) {
-        toast.success('O won!', {
-            action: {
-                label: 'Reset game',
-                onClick: () => resetGame()
-            }
-        }); 
-        return;
-    }
-
-    if (winningLine === -3) {
-        toast.success('X won!', {
-            action: {
-                label: 'Reset game',
-                onClick: () => resetGame()
-            }
-        }); 
-        return;
-    }
-
-    if (! board.value.includes((0))) {
-        toast('Draw!', {
-            action: {
-                label: 'Reset game',
-                onClick: () => resetGame()
-            }
-        });
-        return;
-    }
-
-    return
-} 
-
-const resetGame = () => {
-    board.value = [0, 0, 0, 0, 0, 0, 0, 0, 0];
-
-    router.put(route('games.update', props.game.id), {
-        state: board.value,
+        return !firstTurn.value;
     });
-}
 
-Echo.join(`games.${props.game.id}`)
-    .here((users) => players.value = users)
-    .joining((user) => {
-        router.reload({
-            onSuccess: () => players.value.push(user)
+    const lines = [
+        [0, 1, 2],
+        [3, 4 ,5],
+        [6, 7, 8],
+
+        [0, 3, 6],
+        [1, 4 ,7],
+        [2, 5, 8],
+        
+        [0, 4, 8],
+        [2, 4 ,6],
+    ];
+
+    const channel = Echo.join(`games.${props.game.id}`)
+        .here((users) => players.value = users)
+        .joining((user) => {
+            router.reload({
+                onSuccess: () => players.value.push(user)
+            });
+        })
+        .leaving((user) => players.value = players.value.filter(({id}) => id !== user.id))
+        .listenForWhisper('PlayerMadeMove', ({state}) => {
+            board.value = state;
+            checkForWinner()
         });
-        // toast('Player 2 has joined the game');
-    })
-    .leaving((user) => players.value = players.value.filter(({id}) => id !== user.id))
-    .listen('PlayerMadeMove', ({game}) => {
-        board.value = game.state;
-        checkForWinner()
-    });
+
+    const updateBoard = () => {
+        router.put(route('games.update', props.game.id), {
+            state: board.value,
+        });
+
+        channel.whisper('PlayerMadeMove', {
+            state: board.value,
+        });
+    };
+
+    const fillSquare = (index) => {
+        if(! Turn.value ) {
+            return;
+        }
+
+        board.value[index] = firstTurn.value ? -1 : 1;
+
+        updateBoard();
+        checkForWinner();
+    };
+
+    const checkForWinner = () => {
+        const winningLine = lines.map((line) => line.reduce((acumulator, index) => acumulator + board.value[index], 0))
+            .find((sum) => Math.abs(sum) === 3);
+
+        if (winningLine === 3) {
+            toast.success('O won!', {
+                action: {
+                    label: 'Reset game',
+                    onClick: () => resetGame()
+                }
+            }); 
+            return;
+        }
+
+        if (winningLine === -3) {
+            toast.success('X won!', {
+                action: {
+                    label: 'Reset game',
+                    onClick: () => resetGame()
+                }
+            }); 
+            return;
+        }
+
+        if (! board.value.includes((0))) {
+            toast('Draw!', {
+                action: {
+                    label: 'Reset game',
+                    onClick: () => resetGame()
+                }
+            });
+            return;
+        }
+
+        return
+    } 
+
+    const resetGame = () => {
+        board.value = [0, 0, 0, 0, 0, 0, 0, 0, 0];
+
+        updateBoard();
+    }
+
+    onMounted(checkForWinner);
 
 </script>
 
